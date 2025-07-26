@@ -32,23 +32,23 @@ A full-stack web application built with the MERN stack (MongoDB, Express.js, Rea
 ## ⚙️ Installation & Setup
 
 1. **Clone the repository**
-`bash
+`
 git clone https://github.com/PrabhuG46/Employee-L.M.git
 cd Employee-L.M
 `
 2. **Backend Setup**
-`bash
+`
 cd backend
 npm install
 npm run server   # or: nodemon index.js
 `
 3. **Frontend Setup**
-`bash
+`
 cd ../frontend
 npm install
 npm start
 `
 4. **Open your Browser**
-`bash
+`
 http://localhost:3000
 `
