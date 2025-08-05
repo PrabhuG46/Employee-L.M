@@ -159,6 +159,7 @@ const SignupPage = () => {
                       className="form-control-soft"
                       required
                     >
+                      <option value="admin">admin</option>
                       <option value="employee">Employee</option>
                       <option value="hr">HR Manager</option>
                     </Form.Select>

@@ -18,6 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 const EmployeePage = () => {
   const [employees, setEmployees] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -48,12 +49,30 @@ const EmployeePage = () => {
     }
   };
 
+  const canModifyEmployees = () => {
+    return user?.role === "admin" || user?.role === "hr";
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("/api/employees", formData);
-      setSuccess("Employee added successfully!");
+      if (editingEmployeeId) {
+        await axios.put(`/api/employees/${editingEmployeeId}`, formData);
+        setSuccess("Employee updated successfully!");
+      } else {
+        await axios.post("/api/employees", formData);
+        setSuccess("Employee added successfully!");
+      }
+
       setShowModal(false);
+      setEditingEmployeeId(null);
       setFormData({
         name: "",
         role: "",
@@ -65,29 +84,44 @@ const EmployeePage = () => {
       fetchEmployees();
       setTimeout(() => setSuccess(""), 3000);
     } catch (error) {
-      setError(error.response?.data?.message || "Failed to add employee");
-      console.error("Error adding employee:", error);
+      setError(error.response?.data?.message || "Operation failed");
+      console.error("Error submitting employee:", error);
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleEdit = (employee) => {
     setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+      name: employee.name,
+      role: employee.role,
+      email: employee.email,
+      department: employee.department,
+      phone: employee.phone || "",
+      profilePhoto: employee.profilePhoto || "",
     });
+    setEditingEmployeeId(employee._id);
+    setShowModal(true);
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-US", {
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this employee?"))
+      return;
+    try {
+      await axios.delete(`/api/employees/${id}`);
+      setSuccess("Employee deleted successfully");
+      fetchEmployees();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (error) {
+      setError("Failed to delete employee");
+      console.error("Delete error:", error);
+    }
+  };
+
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
-
-  const canAddEmployee = () => {
-    return user?.role === "hr" || user?.role === "admin";
-  };
 
   if (loading) {
     return (
@@ -109,10 +143,21 @@ const EmployeePage = () => {
             <p className="text-muted mt-2 mb-0">Manage your team members</p>
           </Col>
           <Col xs="auto">
-            {canAddEmployee() && (
+            {canModifyEmployees() && (
               <Button
                 className="btn-soft-primary"
-                onClick={() => setShowModal(true)}
+                onClick={() => {
+                  setShowModal(true);
+                  setEditingEmployeeId(null);
+                  setFormData({
+                    name: "",
+                    role: "",
+                    email: "",
+                    department: "",
+                    phone: "",
+                    profilePhoto: "",
+                  });
+                }}
               >
                 <i className="fas fa-plus me-2"></i>
                 Add Employee
@@ -150,50 +195,58 @@ const EmployeePage = () => {
                     <p className="text-muted mb-0">{employee.role}</p>
                   </div>
                 </div>
-
-                <div className="employee-details">
-                  <div className="mb-2">
+                <div className="employee-details mb-3">
+                  <div>
                     <i className="fas fa-envelope text-muted me-2"></i>
                     <small>{employee.email}</small>
                   </div>
-                  <div className="mb-2">
+                  <div>
                     <i className="fas fa-building text-muted me-2"></i>
                     <small>{employee.department}</small>
                   </div>
                   {employee.phone && (
-                    <div className="mb-2">
+                    <div>
                       <i className="fas fa-phone text-muted me-2"></i>
                       <small>{employee.phone}</small>
                     </div>
                   )}
-                  <div className="mb-0">
+                  <div>
                     <i className="fas fa-calendar text-muted me-2"></i>
                     <small>Joined {formatDate(employee.joinDate)}</small>
                   </div>
                 </div>
+
+                {canModifyEmployees() && (
+                  <div className="d-flex justify-content-between">
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => handleEdit(employee)}
+                    >
+                      <i className="fas fa-edit me-1"></i> Edit
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleDelete(employee._id)}
+                    >
+                      <i className="fas fa-trash me-1"></i> Delete
+                    </Button>
+                  </div>
+                )}
               </Card.Body>
             </Card>
           </Col>
         ))}
       </Row>
 
-      {employees.length === 0 && !loading && (
-        <div className="text-center py-5">
-          <i className="fas fa-users fa-3x text-muted mb-3"></i>
-          <h4>No employees found</h4>
-          <p className="text-muted">
-            {canAddEmployee()
-              ? "Add your first employee to get started"
-              : "No employees to display"}
-          </p>
-        </div>
-      )}
-
-      {/* Add Employee Modal - Only for HR/Admin */}
-      {canAddEmployee() && (
+      {/* Add/Edit Modal */}
+      {canModifyEmployees() && (
         <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
           <Modal.Header closeButton>
-            <Modal.Title>Add New Employee</Modal.Title>
+            <Modal.Title>
+              {editingEmployeeId ? "Edit Employee" : "Add New Employee"}
+            </Modal.Title>
           </Modal.Header>
           <Form onSubmit={handleSubmit}>
             <Modal.Body>
@@ -225,7 +278,6 @@ const EmployeePage = () => {
                   </Form.Group>
                 </Col>
               </Row>
-
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
@@ -254,11 +306,10 @@ const EmployeePage = () => {
                   </Form.Group>
                 </Col>
               </Row>
-
               <Row>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Phone (Optional)</Form.Label>
+                    <Form.Label>Phone</Form.Label>
                     <Form.Control
                       type="tel"
                       name="phone"
@@ -270,7 +321,7 @@ const EmployeePage = () => {
                 </Col>
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Profile Photo URL (Optional)</Form.Label>
+                    <Form.Label>Profile Photo URL</Form.Label>
                     <Form.Control
                       type="url"
                       name="profilePhoto"
@@ -292,7 +343,7 @@ const EmployeePage = () => {
                 Cancel
               </Button>
               <Button type="submit" className="btn-soft-primary">
-                Add Employee
+                {editingEmployeeId ? "Update" : "Add"}
               </Button>
             </Modal.Footer>
           </Form>
